@@ -1,0 +1,25 @@
+{
+	"name": "frontend",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"check": "biome check . && prettier --check \"**/*.html\"",
+		"check:fix": "biome check --write . && prettier --write \"**/*.html\"",
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"format:html": "prettier --write \"**/*.html\""
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"type": "module",
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.15",
+		"prettier": "^3.9.10"
+	},
+	"dependencies": {
+		"html-to-image": "^1.11.13"
+	}
+}

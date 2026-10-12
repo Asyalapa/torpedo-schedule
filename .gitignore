@@ -1,0 +1,68 @@
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Virtual envs
+.venv/
+venv/
+env.bak/
+venv.bak/
+*.env
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+pip-wheel-metadata/
+share/python-wheels/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Ruff cache
+.ruff_cache/
+
+# Pyright / mypy
+.mypy_cache/
+.pyright/
+
+# --- Node / Frontend ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+#dist/
+#build/
+#.cache/
+#.parcel-cache/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
