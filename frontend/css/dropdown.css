@@ -1,0 +1,31 @@
+/* Обёртка кастомного дропдауна */
+.dd, .dropdown { position: relative; width: 100%; }
+.grow .dd, .group-row .dropdown { max-width: 150px; }
+/* Кнопка, открывающая список */
+.dd-toggle, .dropdown__toggle {
+	width: 100%; min-height: var(--control-height); display: flex; align-items: center;
+	justify-content: space-between; gap: 8px; padding: 8px 12px; background: #fff;
+	border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm);
+	font: inherit; font-weight: 500; color: var(--color-text); cursor: pointer; text-align: left;
+}
+.dd-toggle .type-of-train { max-width: 150px; }
+.dd-toggle:hover, .dropdown__toggle:hover { border-color: #a9b4c2; background: #fff; }
+.dd-toggle:focus-visible, .dropdown__toggle:focus-visible {
+	outline: 3px solid #2d6cdf33; border-color: var(--color-primary);
+}
+.dd-value, .dropdown__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-value[data-placeholder], .dropdown__value[data-placeholder] { color: var(--color-text-soft); }
+.dd-arrow, .dropdown__arrow { width: 18px; height: 18px; flex: none; color: var(--color-text-muted); transition: transform .15s ease; }
+.dd.open .dd-arrow, .dropdown.open .dropdown__arrow { transform: rotate(180deg); }
+.dd-list, .dropdown__list {
+	position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); margin: 0;
+	padding: 4px; list-style: none; max-height: 280px; overflow: auto; background: #fff;
+	border: 1px solid var(--color-border); border-radius: 10px; box-shadow: var(--shadow-popover);
+}
+.dd-list > *, .dropdown__list > * { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.dd-list > *:hover, .dd-list > *[aria-selected="true"],
+.dropdown__list > *:hover, .dropdown__list > *[aria-selected="true"] { background: var(--color-primary-soft); color: var(--color-primary); }
+.dd-list > *.disabled, .dropdown__list > *.disabled { opacity: .4; pointer-events: none; }
+.dd > select, .dropdown > select, .native-hidden {
+	position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; overflow: hidden;
+}

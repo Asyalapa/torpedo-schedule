@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="api-base" content="http://localhost:8001" />
+  <title>Torpedo Schedule</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/dropdown.css" />
+  <link rel="stylesheet" href="css/login.css" />
+  <link rel="stylesheet" href="css/editor.css" />
+  <link rel="stylesheet" href="css/fonts.css" />
+  <link rel="stylesheet" href="css/poster.css" />
+  <link rel="icon" href="./vendor/favicon.ico" type="image/x-icon" />
+</head>
+<body>
+<!-- ЭКРАН ЛОГИНА. Показывается, когда нет валидного токена. -->
+<section class="login-screen login" id="login-screen" hidden>
+  <form class="login-card login__card" id="login-form" novalidate>
+    <header class="login-head login__head">
+      <div class="login-logo login__logo">ХК</div>
+      <h1>Торпедо · расписание</h1>
+      <p class="login-sub login__subtitle">Вход для тренеров и администратора</p>
+    </header>
+
+    <!-- Режим «тренер»: выбор команды + пароль -->
+    <div class="login-mode login__mode" data-mode="coach">
+      <div class="field form-field">
+        <span>Команда</span>
+        <!-- Кастомный дропдаун: native <select> спрятан, поверх — кнопка со списком -->
+        <div class="dd dropdown" data-dd>
+          <button type="button" class="dd-toggle dropdown__toggle" aria-haspopup="listbox" aria-expanded="false">
+            <span class="dd-value dropdown__value" data-placeholder="Выберите команду">Выберите команду</span>
+            <svg class="dd-arrow dropdown__arrow" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                  d="m6 9 6 6 6-6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <div class="dd-list dropdown__list" role="listbox" hidden></div>
+          <input type="hidden" name="team_slug" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Режим «админ»: логин + пароль -->
+    <div class="login-mode login__mode" data-mode="admin" hidden>
+      <div class="field form-field">
+        <span>Логин администратора</span>
+        <input type="text" name="admin_login" autocomplete="username" placeholder="admin" />
+      </div>
+    </div>
+
+    <label class="field form-field">
+      <span>Пароль</span>
+      <input type="password" name="password" autocomplete="current-password" required />
+    </label>
+
+    <p class="errs form-errors" id="login-err"></p>
+
+    <button type="submit" class="primary button--primary">Войти</button>
+
+    <button type="button" class="link button--link" id="login-mode-toggle">Вход для администратора</button>
+  </form>
+</section>
+
+<!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ. Показывается после успешного входа. -->
+<main id="app" hidden>
+  <section class="panel" id="bar">
+    <div class="row layout-row" style="align-items: center">
+      <button type="button" id="prev" class="alt button--secondary" aria-label="Предыдущая неделя">‹</button>
+      <strong id="week-label" style="flex: 1; text-align: center"></strong>
+      <button type="button" id="next" class="alt button--secondary" aria-label="Следующая неделя">›</button>
+    </div>
+    <div class="row layout-row" style="align-items: center">
+          <span class="team-chip" id="team-chip" hidden>
+            <span class="team-chip-dot team-chip__dot"></span>
+            <span id="team-chip-name"></span>
+          </span>
+      <span id="dirty"></span>
+      <label style="margin: 0">
+        <input type="checkbox" id="sub" />
+        Подгруппы
+      </label>
+      <button type="button" id="copy" class="alt button--secondary">Скопировать прошлую неделю</button>
+      <button type="button" id="save">Сохранить</button>
+      <button type="button" id="cancel" class="alt button--secondary">Отменить</button>
+      <button type="button" id="back-to-admin" class="alt button--secondary" hidden>← К командам</button>
+      <button type="button" id="logout" class="alt button--secondary">Выйти</button>
+    </div>
+  </section>
+  <!-- Панель администратора: список команд, создание, удаление -->
+  <section class="panel" id="admin-panel" hidden>
+    <div class="row layout-row" style="align-items: center; justify-content: space-between">
+      <h2 style="margin: 0">Команды</h2>
+      <button type="button" id="admin-new-team">+ Новая команда</button>
+    </div>
+    <ul class="list item-list" id="admin-teams"></ul>
+
+    <div
+        class="row layout-row"
+        style="align-items: center; justify-content: space-between; margin-top: 20px"
+    >
+      <h2 style="margin: 0">Площадки</h2>
+      <button type="button" id="venue-add">+ Площадка</button>
+    </div>
+    <ul class="list item-list" id="venues-list"></ul>
+  </section>
+
+  <div id="week-view" hidden>
+    <div class="two layout-two">
+      <div style="display: grid; gap: 20px">
+        <section class="panel">
+          <h2>Событие</h2>
+          <div id="form-box"></div>
+        </section>
+        <section class="panel">
+          <h2>События недели</h2>
+          <ul class="list item-list" id="list"></ul>
+        </section>
+        <section class="panel">
+          <h2>Объявления на неделю</h2>
+          <ul class="list item-list" id="ann"></ul>
+          <div class="row layout-row">
+            <input id="ann-in" placeholder="Текст объявления" style="flex: 1" />
+            <button type="button" id="ann-add">Добавить</button>
+          </div>
+        </section>
+        <section class="panel" id="groups-panel" hidden>
+          <h2>Группы и составы</h2>
+          <div id="groups-editor"></div>
+        </section>
+      </div>
+
+      <div style="display: grid; gap: 20px">
+        <section class="panel">
+          <h2>Афиша расписания</h2>
+          <div class="pw poster-wrap" id="poster"></div>
+          <div class="row layout-row" style="margin-top: 12px">
+            <button type="button" id="png-s">Скачать расписание PNG</button>
+          </div>
+        </section>
+        <section class="panel" id="roster-panel" hidden>
+          <h2>Афиша составов</h2>
+          <div class="pw poster-wrap" id="roster"></div>
+          <div class="row layout-row" style="margin-top: 12px">
+            <button type="button" id="png-r">Скачать составы групп PNG</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<dialog id="team-dialog">
+  <form id="team-form" method="dialog">
+    <h2 id="team-dialog-title">Новая команда</h2>
+
+    <label class="field form-field">
+      <span>Название</span>
+      <input name="name" required maxlength="80" placeholder="ХК Торпедо · 2020" />
+    </label>
+
+    <label class="field form-field">
+      <span>Slug</span>
+      <input
+          name="slug"
+          required
+          pattern="[a-z0-9][a-z0-9-]{1,40}"
+          placeholder="torpedo-2020"
+      />
+      <small>Латиница, цифры и дефис. По нему тренер выбирает команду на входе.</small>
+    </label>
+
+    <label class="field form-field">
+      <span>Пароль тренера</span>
+      <input name="password" required minlength="4" maxlength="100" />
+    </label>
+
+    <p class="errs form-errors" id="team-dialog-err"></p>
+
+    <div class="row layout-row">
+      <button type="submit">Сохранить</button>
+      <button type="button" class="alt button--secondary" id="team-dialog-cancel">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="venue-dialog">
+  <form id="venue-form" method="dialog">
+    <h2 id="venue-dialog-title">Новая площадка</h2>
+
+    <label class="field form-field">
+      <span>Название</span>
+      <input name="name" required maxlength="80" placeholder="КРК «Нагорный»" />
+    </label>
+
+    <label class="field form-field">
+      <span>Цвет (акцент)</span>
+      <input name="color" type="color" value="#2D6CDF" required />
+    </label>
+
+    <label class="field form-field">
+      <span>Фон (светлый оттенок)</span>
+      <input name="tint" type="color" value="#E8F0FD" required />
+    </label>
+
+    <p class="errs form-errors" id="venue-dialog-err"></p>
+
+    <div class="row layout-row">
+      <button type="submit">Сохранить</button>
+      <button type="button" class="alt button--secondary" id="venue-dialog-cancel">Отмена</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="js/main.mjs"></script>
+</body>
+</html>

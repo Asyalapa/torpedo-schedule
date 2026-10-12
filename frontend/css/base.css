@@ -1,0 +1,121 @@
+/* Общие токены интерфейса: повторяющиеся цвета, радиусы и тени вынесены в :root. */
+:root {
+	color-scheme: light;
+	--color-page: #f3f6fb;
+	--color-surface: #fff;
+	--color-text: #1b2430;
+	--color-text-muted: #5b6675;
+	--color-text-soft: #8a94a3;
+	--color-border: #dce3ed;
+	--color-border-strong: #c9d1dc;
+	--color-primary: #2d6cdf;
+	--color-primary-hover: #215bc3;
+	--color-primary-soft: #e8f0fd;
+	--color-danger: #b3261e;
+	--color-dark: #1b2430;
+	--color-dark-soft: #0008;
+	--radius-sm: 8px;
+	--radius-md: 12px;
+	--radius-lg: 16px;
+	--radius-pill: 999px;
+	--shadow-card: 0 12px 32px #1b243012, 0 2px 8px #1b243008;
+	--shadow-popover: 0 12px 30px #1b243022;
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--control-height: 44px;
+	--font-body: "Play", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: light; }
+body {
+	margin: 0;
+	background: var(--color-page);
+	color: var(--color-text);
+	font: 16px/1.5 var(--font-body);
+	-webkit-font-smoothing: antialiased;
+}
+main, #app {
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: var(--space-4);
+	display: grid;
+	gap: var(--space-5);
+}
+button, input, select, textarea { font: inherit; }
+button {
+	min-height: 48px;
+	padding: 0 20px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: var(--color-primary);
+	color: #fff;
+	font-weight: 700;
+	cursor: pointer;
+	transition: background-color .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+button:hover { background: var(--color-primary-hover); }
+button:active { transform: translateY(1px); }
+button:focus-visible, a:focus-visible {
+	outline: 3px solid #2d6cdf55;
+	outline-offset: 2px;
+}
+button.alt, .button--secondary {
+	background: #edf1f6;
+	color: var(--color-text);
+	border-color: #e2e8f0;
+}
+button.alt:hover, .button--secondary:hover { background: #e2e8f0; }
+.layout-row, .row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.panel {
+	min-width: 0;
+	padding: var(--space-4);
+	background: var(--color-surface);
+	border: 1px solid #e8edf4;
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-card);
+}
+.panel h2 { margin: 0 0 var(--space-3); font-size: 1.1rem; line-height: 1.3; }
+.layout-two, .two { display: grid; gap: var(--space-5); }
+.team-chip {
+	display: inline-flex; align-items: center; gap: var(--space-2);
+	min-width: 0; padding: 6px 12px; border-radius: var(--radius-pill);
+	background: var(--color-primary-soft); color: var(--color-primary);
+	font-weight: 700; font-size: .9rem;
+}
+.team-chip__dot, .team-chip-dot {
+	width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none;
+}
+#team-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+#admin-teams li, #venues-list li { display: flex; gap: var(--space-2); align-items: center; }
+#admin-teams li .grow { flex: 1; display: grid; gap: 2px; }
+#admin-teams li small { color: var(--color-text-soft); font-weight: 500; }
+#venues-list .swatch { width: 22px; height: 22px; border-radius: 6px; flex: none; border: 1px solid #0002; }
+input[type="color"] { width: 60px; min-height: 44px; padding: 2px; }
+[hidden] { display: none !important; }
+dialog {
+	border: 1px solid #e8edf4; border-radius: var(--radius-lg); padding: var(--space-6);
+	width: calc(100% - 32px); max-width: 480px; color: var(--color-text);
+	box-shadow: 0 24px 80px #11182730;
+}
+dialog::backdrop { background: #10182880; backdrop-filter: blur(3px); }
+dialog h2 { margin: 0 0 var(--space-3); }
+dialog .field small { color: var(--color-text-soft); font-weight: 500; }
+@media (min-width: 900px) {
+	.layout-two, .two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+@media (max-width: 560px) {
+	main, #app { padding: 10px; gap: 12px; }
+	.panel { padding: 14px; }
+	button { padding-inline: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+/* Бейдж «Команда: …» в шапке */
+.team-chip { display: inline-flex; align-items: center; gap: 8px; }
+.team-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); flex: none; }
+/* Список команд в админ-панели */

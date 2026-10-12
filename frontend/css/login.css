@@ -1,0 +1,39 @@
+/* Экран логина: фиксируем поверх всего, пока нет входа */
+.login-screen, .login {
+	position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px;
+	background: radial-gradient(ellipse at top, #e8f0fd 0%, var(--color-page) 68%);
+	overflow: auto;
+}
+.login-card, .login__card {
+	width: min(440px, 100%); background: #fff; border: 1px solid #e6ecf5; border-radius: var(--radius-lg);
+	padding: 28px 24px 24px; box-shadow: 0 20px 60px #1b243022, 0 2px 8px #1b243011;
+	display: grid; gap: 12px;
+}
+.login-head, .login__head { text-align: center; margin-bottom: 4px; }
+.login-logo, .login__logo {
+	width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 18px; background: var(--color-primary); color: #fff;
+	display: grid; place-items: center; font: 800 1.2rem var(--font-body); letter-spacing: .05em;
+	box-shadow: 0 8px 18px #2d6cdf40;
+}
+.login-head h1, .login__head h1 { margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--color-text); letter-spacing: -.025em; }
+.login-sub, .login__subtitle { margin: 4px 0 0; color: var(--color-text-muted); font-size: .95rem; }
+.login-mode, .login__mode { display: grid; gap: 4px; }
+/* Поля */
+.field, .form-field { display: grid; gap: 6px; margin: 0; }
+.field > span, .form-field > span { font-weight: 600; font-size: .95rem; color: #3b4654; }
+.field input:not([type="checkbox"], [type="radio"]) {
+	width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-border-strong);
+	border-radius: 10px; background: #fff; font: inherit; color: var(--color-text);
+}
+.field input:focus, .form-field input:focus { outline: 3px solid #2d6cdf33; border-color: var(--color-primary); }
+/* Кнопка «Войти» */
+.login-card .primary, .login__card .button--primary { min-height: 52px; font-size: 1.05rem; margin-top: 4px; }
+/* Кнопка-ссылка «Вход для администратора» */
+.login-card .link, .login__card .button--link {
+	background: transparent; color: var(--color-primary); font-weight: 600; padding: 8px; min-height: 40px;
+	text-decoration: underline; text-underline-offset: 3px; justify-self: center;
+}
+.login-card .link:hover, .login__card .button--link:hover { background: var(--color-primary-soft); border-radius: 8px; text-decoration: none; }
+#login-err { margin: 0; color: var(--color-danger); font-weight: 600; min-height: 1.2em; text-align: center; }
+#login-err:empty { display: none; }
+@media (max-width: 480px) { .login-card, .login__card { padding: 24px 18px 20px; } }
