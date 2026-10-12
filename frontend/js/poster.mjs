@@ -1,26 +1,41 @@
-import { icon } from "./icons.js";
+// frontend/js/poster.mjs
+import { icon } from "./icons.mjs";
+
 export const esc = (s) =>
 	String(s).replace(
 		/[&<>"']/g,
 		(c) =>
 			({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
 				c
-			],
+				],
 	);
-// biome-ignore lint/style/useTemplate: строковая конкатенация ISO-даты читается яснее
+
 const utc = (iso) => new Date(iso + "T00:00:00Z");
+
 export const addDays = (iso, n) => {
 	const d = utc(iso);
 	d.setUTCDate(d.getUTCDate() + n);
 	return d.toISOString().slice(0, 10);
 };
+
 export const fmt = (iso, o) =>
 	utc(iso).toLocaleDateString("ru", { ...o, timeZone: "UTC" });
+
+export function addMinutes(hhmm, minutes) {
+	if (!hhmm || !Number.isFinite(minutes)) return "";
+	const [h, m] = hhmm.split(":").map(Number);
+	const total = h * 60 + m + minutes;
+	const hh = String(Math.floor(total / 60) % 24).padStart(2, "0");
+	const mm = String(total % 60).padStart(2, "0");
+	return `${hh}:${mm}`;
+}
+
 const ACT = {
 	ofp: ["ОФП", "dumbbell"],
 	stretch: ["Растяжка", "splits"],
 	dribbling: ["Дриблинг", "stick"],
 };
+
 const SPECIAL = {
 	friendly: {
 		c: "#E3B341",
@@ -30,21 +45,49 @@ const SPECIAL = {
 	},
 	tournament: { c: "#E67E22", t: "#FFF0E0", icon: "trophy", label: "Турнир" },
 };
+
 const row = (cls, html) => (html ? `<div class="${cls}">${html}</div>` : "");
 
-function card(e, venues) {
+// Попадает ли событие на конкретный день.
+// Для турнира с date_end — на все дни диапазона включительно.
+function eventOnDate(e, iso) {
+	if (e.kind === "tournament" && e.date_end && e.date_end > e.date) {
+		return e.date <= iso && iso <= e.date_end;
+	}
+	return e.date === iso;
+}
+
+// Время friendly с учётом warmup_30.
+// Возвращает массив { time, group } — по одной строке на уникальное время.
+function friendlyTimes(e) {
+	const slots = e.slots || [];
+	if (!slots.length) return [];
+	const shift = e.warmup_30 ? -30 : 0;
+	const byTime = new Map();
+	for (const s of slots) {
+		const shown = shift ? addMinutes(s.start, shift) : s.start;
+		if (!byTime.has(shown)) byTime.set(shown, []);
+		if (s.group_name) byTime.get(shown).push(s.group_name);
+	}
+	return [...byTime.entries()]
+		.sort((a, b) => a[0].localeCompare(b[0]))
+		.map(([time, groups]) => ({ time, group: groups.join(", ") }));
+}
+
+function card(e, venues, iso) {
 	const v = venues.find((x) => x.id === e.venue_id);
 	const sp = SPECIAL[e.kind];
 	const c = sp ? sp.c : (v?.color ?? "#727E8D"),
 		t = sp ? sp.t : (v?.tint ?? "#EEF0F3");
-	const time = e.start ? (e.end ? `${e.start}–${e.end}` : e.start) : "";
-	const meta = [
-		time,
-		v?.name ?? (e.place && e.kind === "friendly" ? e.place : ""),
-	]
-		.filter(Boolean)
-		.map(esc)
-		.join(" · ");
+
+	let metaTime = "";
+	if (e.kind === "training" && e.start) {
+		metaTime =
+			e.duration > 0 ? `${e.start}–${addMinutes(e.start, e.duration)}` : e.start;
+	}
+
+	const meta = [metaTime, v?.name ?? ""].filter(Boolean).map(esc).join(" · ");
+
 	let ic,
 		title,
 		extra = "";
@@ -62,45 +105,82 @@ function card(e, venues) {
 		if (e.type === "gym" && e.gym_mode === "common" && e.florball_warning)
 			extra =
 				'<div class="warn">Взять с собой: шлем, краги и клюшку для флорбола</div>';
+	} else if (e.kind === "friendly") {
+		ic = sp.icon;
+		title = sp.label;
+		const times = friendlyTimes(e);
+		const timesHtml = times
+			.map(
+				({ time, group }) =>
+					`<div class="as">${icon("star")}<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span></div>`,
+			)
+			.join("");
+		extra =
+			timesHtml +
+			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`) +
+			row("l", v?.name && `Место: ${esc(v.name)}`);
 	} else {
+		// tournament
 		ic = sp.icon;
 		title = e.kind === "tournament" ? "Турнир" : sp.label;
-		if (e.kind === "friendly")
-			extra = row("l", e.opponent && `Соперник: ${esc(e.opponent)}`);
-		else
-			extra =
-				row("big", e.title && esc(e.title)) +
-				row("l", e.place && `Место проведения: ${esc(e.place)}`) +
-				row(
-					"l",
-					e.date_end &&
-						`Даты: ${fmt(e.date, { day: "numeric", month: "long" })} – ${fmt(e.date_end, { day: "numeric", month: "long" })}`,
-				);
+
+		const hasRange = e.date_end && e.date_end > e.date;
+		const isFirst = !hasRange || iso === e.date;
+		const isLast = !hasRange || iso === e.date_end;
+
+		let dateLabel = "";
+		if (hasRange) {
+			if (isFirst && isLast) {
+				dateLabel = "";
+			} else if (isFirst) {
+				dateLabel = `с ${fmt(e.date, { day: "numeric", month: "long" })} по ${fmt(e.date_end, { day: "numeric", month: "long" })}`;
+			} else if (isLast) {
+				dateLabel = `последний день, ${fmt(e.date_end, { day: "numeric", month: "long" })}`;
+			} else {
+				dateLabel = "продолжается";
+			}
+		}
+
+		extra =
+			row("big", e.title && esc(e.title)) +
+			row("l", e.place && `Место проведения: ${esc(e.place)}`) +
+			row("l", e.start && `Начало: ${esc(e.start)}`) +
+			row("l", dateLabel && esc(dateLabel));
 	}
+
 	return `<div class="ev" style="--c:${c};--t:${t}">${icon(ic)}<div><div class="t">${title}</div>${row("m", meta)}${extra}${row("n", e.note && esc(e.note))}</div></div>`;
 }
 
-export function posterHTML(week, venues) {
+export function posterHTML(week, venues, teamName = "ХК Торпедо") {
 	const days = Array.from({ length: 7 }, (_, i) => addDays(week.week_start, i))
 		.map((d) => {
 			const evs = week.events
-				.filter((e) => e.date === d)
-				.sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+				.filter((e) => eventOnDate(e, d))
+				.sort((a, b) => {
+					const ta = a.start || a.slots?.[0]?.start || "";
+					const tb = b.start || b.slots?.[0]?.start || "";
+					return ta.localeCompare(tb);
+				});
 			const body = evs.length
-				? evs.map((e) => card(e, venues)).join("")
+				? evs.map((e) => card(e, venues, d)).join("")
 				: '<div class="off">Выходной</div>';
 			return `<section class="day"><h3>${fmt(d, { weekday: "long" })}<span>${fmt(d, { day: "numeric", month: "long" })}</span></h3>${body}</section>`;
 		})
 		.join("");
-	const range = `${fmt(week.week_start, { day: "numeric", month: "long" })} – ${fmt(addDays(week.week_start, 6), { day: "numeric", month: "long", year: "numeric" })}`;
+
+	const range = `${fmt(week.week_start, { day: "numeric", month: "long" })} – ${fmt(
+		addDays(week.week_start, 6),
+		{ day: "numeric", month: "long", year: "numeric" },
+	)}`;
 	const ann = week.announcements.length
 		? `<div class="ann">${week.announcements.map((a) => `<p>${esc(a.text)}</p>`).join("")}</div>`
 		: "";
-	return `<div class="poster"><header class="ph"><b>ХК ТОРПЕДО · 2019</b><h2>РАСПИСАНИЕ ТРЕНИРОВОК</h2><div>${range}</div></header>${days}${ann}</div>`;
+	return `<div class="poster"><header class="ph"><b>${esc(teamName)}</b><h2>РАСПИСАНИЕ ТРЕНИРОВОК</h2><div>${range}</div></header>${days}${ann}</div>`;
 }
 
-export function rosterHTML(groups, dateISO) {
-	const cards = groups
+export function rosterHTML(groups, dateISO, teamName = "ХК Торпедо") {
+	const visible = groups.filter((g) => g.print_on_roster !== false);
+	const cards = visible
 		.map(
 			(g) =>
 				`<section class="rc"><h3>${esc(g.name)}<span>${g.players.length} игр.</span></h3>${
@@ -110,5 +190,5 @@ export function rosterHTML(groups, dateISO) {
 				}</section>`,
 		)
 		.join("");
-	return `<div class="poster"><header class="ph"><b>ХК ТОРПЕДО · 2019</b><h2>СОСТАВЫ ПОДГРУПП</h2><div>Актуально на ${fmt(dateISO, { day: "numeric", month: "long", year: "numeric" })}</div></header>${cards}</div>`;
+	return `<div class="poster"><header class="ph"><b>${esc(teamName)}</b><h2>СОСТАВЫ ПОДГРУПП</h2><div>Актуально на ${fmt(dateISO, { day: "numeric", month: "long", year: "numeric" })}</div></header>${cards || '<div class="off">Ни один состав не выбран для печати</div>'}</div>`;
 }

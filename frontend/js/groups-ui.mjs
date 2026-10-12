@@ -1,8 +1,10 @@
-import { esc } from "./poster.js";
-import { emit, groupUsage, on, state, uid } from "./state.js";
+import { enhanceAllSelects } from "./dropdown.mjs";
+import { esc } from "./poster.mjs";
+import { emit, groupUsage, on, state, uid } from "./state.mjs";
 
 const $ = (s) => document.querySelector(s);
 const open = new Set();
+
 export const parseNames = (text, existing = []) => {
 	const seen = new Set(existing.map((n) => n.toLowerCase()));
 	return text
@@ -12,25 +14,36 @@ export const parseNames = (text, existing = []) => {
 			(s) => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()),
 		);
 };
+
 const move = (a, i, d) => {
 	const j = i + d;
 	if (i >= 0 && j >= 0 && j < a.length) [a[i], a[j]] = [a[j], a[i]];
 };
 
 export function renderGroups() {
-	$("#groups-editor").innerHTML =
+	const el = $("#groups-editor");
+	el.innerHTML =
 		state.groups
 			.map(
 				(g) => `<details data-g="${g.id}" ${open.has(g.id) ? "open" : ""}>
 <summary>${esc(g.name)} · ${g.players.length}</summary>
+<label class="roster-toggle">
+  <input type="checkbox" data-rprint ${g.print_on_roster !== false ? "checked" : ""}>
+  Печатать состав в афише
+</label>
 <label>Название<input data-gname value="${esc(g.name)}"></label>
-<ol class="pl">${g.players.map((p) => `<li data-p="${p.id}"><input data-pname value="${esc(p.name)}" aria-label="Имя игрока"><button type="button" data-act="pup" aria-label="Выше">↑</button><button type="button" data-act="pdn" aria-label="Ниже">↓</button><button type="button" class="alt" data-act="pdel" aria-label="Удалить">✕</button></li>`).join("")}</ol>
+<ol class="pl">${g.players
+					.map(
+						(p) =>
+							`<li data-p="${p.id}"><input data-pname value="${esc(p.name)}" aria-label="Имя игрока"><button type="button" data-act="pup" aria-label="Выше">↑</button><button type="button" data-act="pdn" aria-label="Ниже">↓</button><button type="button" class="alt" data-act="pdel" aria-label="Удалить">✕</button></li>`,
+					)
+					.join("")}</ol>
 <div class="row"><input data-newp placeholder="Имя игрока" style="flex:1"><button type="button" data-act="padd">Добавить</button></div>
 <details><summary>Вставить список</summary><textarea data-bulk rows="5" placeholder="По одному имени в строке"></textarea><div data-prev></div><button type="button" data-act="bulk">Добавить из списка</button></details>
 <div class="row"><button type="button" class="alt" data-act="gup">Группу выше</button><button type="button" class="alt" data-act="gdn">Ниже</button><button type="button" class="alt" data-act="gdel">Удалить группу</button></div></details>`,
 			)
-			.join("") +
-		'<button type="button" data-act="gadd">+ Добавить группу</button>';
+			.join("") + '<button type="button" data-act="gadd">+ Добавить группу</button>';
+	enhanceAllSelects(el);
 }
 
 export function initGroups() {
@@ -38,6 +51,7 @@ export function initGroups() {
 	const done = () => {
 		emit("groups");
 	};
+
 	el.addEventListener("click", (ev) => {
 		const b = ev.target.closest("[data-act]");
 		if (!b) return;
@@ -87,6 +101,7 @@ export function initGroups() {
 		}
 		done();
 	});
+
 	el.addEventListener("input", (ev) => {
 		const ta = ev.target.closest("[data-bulk]");
 		if (!ta) return;
@@ -101,12 +116,20 @@ export function initGroups() {
 				).length
 			}`;
 	});
+
 	el.addEventListener("change", (ev) => {
-		// правка имён без перерисовки, чтобы не съесть клик по соседней кнопке
 		const g = state.groups.find(
 			(x) => x.id === ev.target.closest("[data-g]")?.dataset.g,
 		);
 		if (!g) return;
+
+		// чекбокс «печатать в афише составов»
+		if (ev.target.matches("[data-rprint]")) {
+			g.print_on_roster = ev.target.checked;
+			emit("names");
+			return;
+		}
+
 		const v = ev.target.value.trim();
 		if (ev.target.matches("[data-gname]") && v) g.name = v;
 		if (ev.target.matches("[data-pname]") && v)
@@ -115,9 +138,11 @@ export function initGroups() {
 			).name = v;
 		emit("names");
 	});
+
 	on((k) => {
 		if (["groups", "reset", "settings"].includes(k)) renderGroups();
 	});
+
 	renderGroups();
 }
 

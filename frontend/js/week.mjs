@@ -1,4 +1,4 @@
-import { addDays } from "./poster.js";
+import { addDays } from "./poster.mjs";
 export const localISO = (d = new Date()) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export function mondayOf(d = new Date()) {

@@ -1,18 +1,16 @@
-// PNG: афиша рендерится в скрытом узле шириной 1080 px, высота растёт по содержимому.
+import { toBlob } from "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm";
+
 const W = 1080,
-	MAX_PIXELS = 16e6; // потолок канваса iOS Safari ~16.7 млн пикселей
+	MAX_PIXELS = 16e6;
 
 export async function exportPng(html, filename) {
-	const lib = window.htmlToImage;
-	if (!lib) throw new Error("не загружена библиотека html-to-image");
-	const wrap = document.createElement("div"); // 0×0 с overflow:hidden: не виден и не смещает узел за экран
+	const wrap = document.createElement("div");
 	wrap.className = "export-wrap";
 	wrap.setAttribute("aria-hidden", "true");
 	wrap.innerHTML = `<div class="pw export">${html}</div>`;
 	document.body.append(wrap);
 	try {
 		if (document.fonts) {
-			// иначе в PNG может попасть системный шрифт
 			await Promise.all(
 				["400", "700"].map((w) =>
 					document.fonts.load(`${w} 36px Play`, "АЯёЁ0:–«»"),
@@ -25,7 +23,7 @@ export async function exportPng(html, filename) {
 			2,
 			Math.sqrt(MAX_PIXELS / (W * (node.offsetHeight || 1))),
 		);
-		const blob = await lib.toBlob(node, {
+		const blob = await toBlob(node, {
 			pixelRatio: ratio,
 			backgroundColor: "#ffffff",
 		});
