@@ -1,34 +1,5 @@
-"""from functools import lru_cache
-from fastapi import HTTPException
-from pymongo import ASCENDING, MongoClient
-from .config import settings
-
-@lru_cache
-def _client() -> MongoClient:
-    return MongoClient(settings.mongodb_uri, serverSelectionTimeoutMS=5000, tz_aware=True)
-
-def get_db():
-    if not settings.mongodb_uri:
-        raise HTTPException(503, 'На сервере не задан MONGODB_URI')
-    return _client()[settings.mongodb_db]
-
-VENUES = [
-    {'id': 'nag', 'name': 'КРК «Нагорный»', 'color': '#2D6CDF', 'tint': '#E8F0FD'},
-    {'id': 'volga', 'name': '«Волга Арена»', 'color': '#727E8D', 'tint': '#EEF0F3'},
-    {'id': 'radiy', 'name': '«Радий»', 'color': '#26845B', 'tint': '#E6F4EC'},
-]
-
-def init_db(db) -> None:
-    db.schedules.create_index([('week_start', ASCENDING)], unique=True)
-    for coll in ('groups', 'venues', 'roster_snapshots'):
-        db[coll].create_index([('id', ASCENDING)], unique=True)
-    if db.venues.count_documents({}) == 0:
-        db.venues.insert_many([dict(v) for v in VENUES])
-    db.settings.update_one({'key': 'team'}, {'$setOnInsert': {
-        'key': 'team', 'team_name': 'ХК Торпедо · 2019', 'subgroups_enabled': None}}, upsert=True)
-"""
-
 import sqlite3
+from pathlib import Path
 
 from .config import settings
 from .security import hash_password
@@ -37,8 +8,10 @@ from .security import hash_password
 
 
 def get_db() -> sqlite3.Connection:
+    path = Path(settings.sqlite_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(
-        settings.sqlite_path,
+        str(path),
         detect_types=sqlite3.PARSE_DECLTYPES,
         check_same_thread=False,
     )
