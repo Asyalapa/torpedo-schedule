@@ -1,6 +1,6 @@
 // frontend/js/validation.mjs
 
-const T = /^([01]\d|2[0-3]):[0-5][05]$/; // минуты кратные 5
+const T = /^([01]\d|2[0-3]):[0-5][05]$/;
 const DURATIONS = new Set([30, 45, 60, 75]);
 
 export function build(fd, groups) {
@@ -36,14 +36,19 @@ export function build(fd, groups) {
 					}));
 		}
 	} else if (kind === "friendly") {
-		if (g("venue_id")) e.venue_id = g("venue_id");
+		// ВАЖНО: площадка лежит в friendly_venue_id, а не в venue_id
+		const vId = g("friendly_venue_id");
+		if (vId) e.venue_id = vId;
 		if (g("opponent")) e.opponent = g("opponent");
-		e.warmup_30 = fd.has("warmup_30");
+
+		// warmup — radio: "" | "30" | "45"
+		const w = g("warmup");
+		e.warmup_30 = w === "30";
+		e.warmup_45 = w === "45";
 
 		const mode = g("friendly_mode") || "same";
 
 		if (mode === "same") {
-			// один слот: время из start, группа — из friendly_group_same (если есть)
 			const start = time("start");
 			const groupId = g("friendly_group_same");
 			const group = groups.find((x) => x.id === groupId) || null;
@@ -55,7 +60,6 @@ export function build(fd, groups) {
 				},
 			];
 		} else {
-			// per_group: N слотов, у каждого своя группа и время
 			const count = Number(g("friendly_count")) || 0;
 			e.slots = [];
 			for (let i = 0; i < count; i++) {
@@ -69,12 +73,10 @@ export function build(fd, groups) {
 			}
 		}
 	} else {
-		// tournament
+		// tournament — поле start больше не рендерим
 		e.title = g("title");
 		if (g("place")) e.place = g("place");
 		if (g("date_end")) e.date_end = g("date_end");
-		const start = time("start");
-		if (start) e.start = start;
 	}
 
 	return e;
@@ -103,7 +105,6 @@ export function validate(e, groups = []) {
 			errors.push("Укажите хотя бы один состав.");
 		} else {
 			e.slots.forEach((s, i) => {
-				// время не обязательно — но если введено, должно быть корректным
 				if (s.start && bad(s.start)) {
 					errors.push(
 						`Состав ${i + 1}: время нужно указать полностью: часы и минуты.`,
@@ -119,7 +120,6 @@ export function validate(e, groups = []) {
 				}
 			});
 
-			// разные составы не должны пересекаться по группам
 			const ids = e.slots.map((s) => s.group_id).filter(Boolean);
 			if (ids.length !== new Set(ids).size) {
 				errors.push("Один и тот же состав не может играть дважды в одной игре.");
@@ -129,10 +129,6 @@ export function validate(e, groups = []) {
 
 	if (e.kind === "tournament") {
 		if (!e.title) errors.push("Введите название турнира.");
-		// время начала не обязательно; если указано — проверяем формат
-		if (e.start && bad(e.start)) {
-			errors.push("Время нужно указать полностью: часы и минуты.");
-		}
 		if (e.date_end && e.date_end < e.date) {
 			errors.push("Последний день турнира раньше первого.");
 		}

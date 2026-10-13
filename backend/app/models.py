@@ -79,9 +79,9 @@ class Training(EventBase):
 
 
 class FriendlySlot(Strict):
-    group_id: str = ""  # пусто, если у команды нет подгрупп
-    group_name: Name | None = None  # снимок имени; пусто, если группы нет
-    start: Time
+    group_id: str = ""
+    group_name: Name | None = None
+    start: Time | None = None  # может быть не указано
 
 
 class Friendly(EventBase):
@@ -89,17 +89,13 @@ class Friendly(EventBase):
     opponent: Name | None = None
     venue_id: str | None = None
     warmup_30: bool = False
+    warmup_45: bool = False
     slots: list[FriendlySlot]
 
     @model_validator(mode="after")
     def _slots(self):
         if not self.slots:
-            raise ValueError("Укажите хотя бы одно время начала")
-        # если у команды подгруппы, group_id обязателен в каждом слоте
-        # (проверка «есть ли подгруппы» — на уровне роутов, здесь только формат)
-        for s in self.slots:
-            if not s.start:
-                raise ValueError("У каждого состава должно быть время начала")
+            raise ValueError("Укажите хотя бы один состав")
         return self
 
 
@@ -107,6 +103,7 @@ class Tournament(EventBase):
     kind: Literal["tournament"]
     title: Name
     place: Name | None = None
+    # start оставлен для совместимости со старыми записями; новые события его не шлют
     start: Time | None = None
     date_end: Day | None = None
 
@@ -147,7 +144,7 @@ class GroupsIn(Strict):
 
     @model_validator(mode="after")
     def _unique(self):
-        ids = [g.id for g in self.groups] + [p.id for g in self.groups for p in g.players]
+        ids = [g.id for g in self.groups] + [p.id for p in self.groups for p in g.players]
         if len(ids) != len(set(ids)):
             raise ValueError("Идентификаторы групп и игроков должны быть уникальны")
         return self

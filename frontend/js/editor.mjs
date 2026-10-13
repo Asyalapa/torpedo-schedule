@@ -7,7 +7,6 @@ import { build, validate } from "./validation.mjs";
 const $ = (s) => document.querySelector(s);
 const pad = (n) => String(n).padStart(2, "0");
 
-// Часы: только 06..21. Минуты: кратные 5.
 const H = Array.from({ length: 16 }, (_, i) => pad(6 + i));
 const M = Array.from({ length: 12 }, (_, i) => pad(i * 5));
 
@@ -30,8 +29,6 @@ const opts = (a, sel) =>
 		)
 		.join("");
 
-// Часы + минуты. Пустое значение = не задано.
-// withDefault=true — только для тренировки, чтобы поле старта сразу было 06:00.
 const tsel = (n, v = "", withDefault = false) => {
 	const [h, m] = (v || "").split(":");
 	const def = withDefault && n === "start";
@@ -74,8 +71,6 @@ const readRows = () =>
 
 let lastDate = null;
 
-// Вспомогательное: HTML-опции для выбора группы в слоте friendly.
-// Если у команды нет подгрупп — одиночный вариант «— вся команда —».
 const groupOptions = (selected = "") => {
 	if (!state.groups.length) {
 		return `<option value="" ${selected ? "" : "selected"}>— вся команда —</option>`;
@@ -91,14 +86,24 @@ const groupOptions = (selected = "") => {
 	);
 };
 
-// Слот friendly: селект группы + время начала (без дефолта 06:00).
+// Площадки — селект. Вынесено, чтобы имя было параметром.
+const venueSelect = (name, selectedId) => `
+  <select name="${name}">
+    <option value="" ${!selectedId ? "selected" : ""}>— не указана —</option>
+    ${state.venues
+	.map(
+		(x) =>
+			`<option value="${x.id}" ${x.id === selectedId ? "selected" : ""}>${esc(x.name)}</option>`,
+	)
+	.join("")}
+  </select>`;
+
 const friendlySlot = (i, slot = {}) => `
   <div class="friendly-slot friendly__slot" data-slot="${i}">
     <label>Состав<select name="slot_group_${i}" aria-label="Состав">${groupOptions(slot.group_id || "")}</select></label>
     <label>Начало ${tsel(`slot_start_${i}`, slot.start || "")}</label>
   </div>`;
 
-// Список слотов по количеству.
 const friendlySlots = (count, existing = []) =>
 	Array.from({ length: count }, (_, i) => friendlySlot(i, existing[i] || {})).join("");
 
@@ -110,6 +115,7 @@ export function open(ev = {}) {
 		date: lastDate || state.week.week_start,
 		duration: Number(DEFAULT_DURATION),
 		warmup_30: false,
+		warmup_45: false,
 		slots: [],
 		...ev,
 	};
@@ -125,7 +131,6 @@ export function open(ev = {}) {
 	const durVal =
 		e.kind === "training" ? String(e.duration || DEFAULT_DURATION) : "";
 
-	// --- начальное состояние friendly ---
 	const slots = e.slots || [];
 	const friendlyMode =
 		e.kind === "friendly" && slots.length > 1 ? "per_group" : "same";
@@ -135,15 +140,7 @@ export function open(ev = {}) {
 	const friendlyHTML = `
     <div data-k="friendly">
       <label>Соперник<input name="opponent" value="${v(e.opponent)}"></label>
-      <label>Площадка<select name="venue_id">
-        <option value="" ${!e.venue_id ? "selected" : ""}>— не указана —</option>
-        ${state.venues
-		.map(
-			(x) =>
-				`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`,
-		)
-		.join("")}
-      </select></label>
+      <label>Площадка${venueSelect("friendly_venue_id", e.venue_id || "")}</label>
 
       <div class="seg segmented" style="margin-top:10px">
         <label><input type="radio" name="friendly_mode" value="same" ${friendlyMode === "same" ? "checked" : ""}>Все составы в одно время</label>
@@ -171,7 +168,9 @@ export function open(ev = {}) {
         <div id="friendly-slots">${friendlySlots(slotCount, slots)}</div>
       </div>
 
-      <label class="chk checkbox-row"><input type="checkbox" name="warmup_30" ${e.warmup_30 ? "checked" : ""}> Сбор за 30 минут до начала</label>
+      <label class="chk checkbox-row"><input type="radio" name="warmup" value="" ${!e.warmup_30 && !e.warmup_45 ? "checked" : ""}> Без сбора</label>
+      <label class="chk checkbox-row"><input type="radio" name="warmup" value="30" ${e.warmup_30 ? "checked" : ""}> Сбор за 30 минут до начала</label>
+      <label class="chk checkbox-row"><input type="radio" name="warmup" value="45" ${e.warmup_45 ? "checked" : ""}> Сбор за 45 минут до начала</label>
     </div>`;
 
 	$("#form-box").innerHTML = `<form id="f" novalidate><input type="hidden" name="id" value="${v(e.id)}">
@@ -186,15 +185,7 @@ ${seg(
 	)}
 <label>День<select name="date">${days.map((d) => `<option value="${d}" ${d === e.date ? "selected" : ""}>${fmt(d, { weekday: "long", day: "numeric", month: "long" })}</option>`).join("")}</select></label>
 <div class="r2 form-grid" data-k="training"><label>Начало ${tsel("start", e.start, true)}</label><label>Длительность ${dsel(durVal)}</label></div>
-<label data-k="training">Площадка<select name="venue_id">
-  <option value="" ${!e.venue_id ? "selected" : ""}>— не указана —</option>
-  ${state.venues
-		.map(
-			(x) =>
-				`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`,
-		)
-		.join("")}
-</select></label>
+<label data-k="training">Площадка${venueSelect("venue_id", e.venue_id || "")}</label>
 ${seg(
 		"type",
 		[
@@ -230,7 +221,6 @@ ${friendlyHTML}
 	sync();
 	enhanceAllSelects(f);
 
-	// перерисовка слотов при смене режима или количества
 	f.addEventListener("change", (ev) => {
 		if (
 			ev.target.name === "friendly_mode" ||
@@ -249,7 +239,6 @@ ${friendlyHTML}
 		open();
 	};
 
-	// ↓↓↓ новый контракт validate(): { errors, warnings }
 	f.onsubmit = (x) => {
 		x.preventDefault();
 		const ne = build(new FormData(f), state.groups);
@@ -283,7 +272,6 @@ ${friendlyHTML}
 	};
 }
 
-// Перерисовывает блок слотов friendly, сохраняя уже введённые значения.
 function renderFriendlySlots(form) {
 	const box = form.querySelector("#friendly-slots");
 	if (!box) return;
@@ -297,7 +285,6 @@ function renderFriendlySlots(form) {
 	}
 	if (sameBox) sameBox.hidden = true;
 
-	// собираем уже введённые значения
 	const existing = [];
 	for (const el of box.querySelectorAll(".friendly-slot")) {
 		const i = Number(el.dataset.slot);
@@ -324,7 +311,6 @@ function sync() {
 		}
 		el.hidden = !show;
 	});
-	// режим friendly: same / per_group
 	f.querySelectorAll("[data-fm]").forEach((el) => {
 		if (v.kind !== "friendly") return;
 		el.hidden = el.dataset.fm !== (v.friendly_mode || "same");
@@ -348,7 +334,6 @@ function renderLists() {
 	$("#list").innerHTML =
 		ev
 			.map((e) => {
-				// подпись даты: для турнира с диапазоном — «10–11 окт», иначе «пн, 10»
 				const hasRange =
 					e.kind === "tournament" && e.date_end && e.date_end > e.date;
 				const dateLabel = hasRange
@@ -359,10 +344,10 @@ function renderLists() {
 				if (e.kind === "training" && e.start && e.duration) {
 					time = `${e.start}–${addMinutes(e.start, e.duration)}`;
 				} else if (e.kind === "friendly" && e.slots?.length) {
-					const times = [...new Set(e.slots.map((s) => s.start).filter(Boolean))].sort();
+					const times = [
+						...new Set(e.slots.map((s) => s.start).filter(Boolean)),
+					].sort();
 					time = times.join(", ");
-				} else if (e.start) {
-					time = e.start;
 				}
 
 				return `<li><span><b>${dateLabel}</b> ${esc(time)} ${esc(label(e))}</span><button type="button" data-edit="${e.id}">Изменить</button><button type="button" class="alt button--secondary" data-del="${e.id}">Удалить</button></li>`;

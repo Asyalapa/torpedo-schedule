@@ -48,8 +48,6 @@ const SPECIAL = {
 
 const row = (cls, html) => (html ? `<div class="${cls}">${html}</div>` : "");
 
-// Попадает ли событие на конкретный день.
-// Для турнира с date_end — на все дни диапазона включительно.
 function eventOnDate(e, iso) {
 	if (e.kind === "tournament" && e.date_end && e.date_end > e.date) {
 		return e.date <= iso && iso <= e.date_end;
@@ -57,32 +55,46 @@ function eventOnDate(e, iso) {
 	return e.date === iso;
 }
 
-// Время friendly с учётом warmup_30.
-// Возвращает массив { time, group } — по одной строке на уникальное время.
-// Если хотя бы у одного слота нет времени — добавляем «время уточняется».
+// Строки времени для friendly:
+//   - основное время каждого слота (без сдвига!)
+//   - если задан сбор (warmup_30 / warmup_45) — отдельная строка
+// Возвращает массив { time, group } для основного времени
+// и отдельно строку сборов { warmup: "12:30" | "12:15" | "" }.
 function friendlyTimes(e) {
 	const slots = e.slots || [];
-	if (!slots.length) return [];
-	const shift = e.warmup_30 ? -30 : 0;
+	if (!slots.length) return { rows: [], warmup: "" };
+
 	const byTime = new Map();
 	let hasUnknown = false;
-
 	for (const s of slots) {
 		if (!s.start) {
 			hasUnknown = true;
 			continue;
 		}
-		const shown = shift ? addMinutes(s.start, shift) : s.start;
-		if (!byTime.has(shown)) byTime.set(shown, []);
-		if (s.group_name) byTime.get(shown).push(s.group_name);
+		if (!byTime.has(s.start)) byTime.set(s.start, []);
+		if (s.group_name) byTime.get(s.start).push(s.group_name);
 	}
 
-	const out = [...byTime.entries()]
+	const rows = [...byTime.entries()]
 		.sort((a, b) => a[0].localeCompare(b[0]))
 		.map(([time, groups]) => ({ time, group: groups.join(", ") }));
 
-	if (hasUnknown) out.push({ time: "время уточняется", group: "" });
-	return out;
+	if (hasUnknown) rows.push({ time: "время уточняется", group: "" });
+
+	// сбор — по первому (самому раннему) времени игры, без сдвига основного времени
+	const firstStart = rows.find((r) => /^\d{2}:\d{2}$/.test(r.time))?.time;
+	let warmup = "";
+	let warmupMin = 0;
+	if (firstStart) {
+		if (e.warmup_45) {
+			warmup = addMinutes(firstStart, -45);
+			warmupMin = 45;
+		} else if (e.warmup_30) {
+			warmup = addMinutes(firstStart, -30);
+			warmupMin = 30;
+		}
+	}
+	return { rows, warmup, warmupMin };
 }
 
 function card(e, venues, iso) {
@@ -119,8 +131,8 @@ function card(e, venues, iso) {
 	} else if (e.kind === "friendly") {
 		ic = sp.icon;
 		title = sp.label;
-		const times = friendlyTimes(e);
-		const timesHtml = times
+		const { rows, warmup, warmupMin } = friendlyTimes(e);
+		const timesHtml = rows
 			.map(
 				({ time, group }) =>
 					`<div class="as">${icon("star")}<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span></div>`,
@@ -129,11 +141,12 @@ function card(e, venues, iso) {
 		extra =
 			timesHtml +
 			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`) +
-			row("l", v?.name && `Место: ${esc(v.name)}`);
+			row("l", v?.name && `Место: ${esc(v.name)}`) +
+			row("warn", warmup && `Сбор за ${warmupMin} минут — в ${esc(warmup)}`);
 	} else {
 		// tournament
 		ic = sp.icon;
-		title = e.kind === "tournament" ? "Турнир" : sp.label;
+		title = "Турнир";
 
 		const hasRange = e.date_end && e.date_end > e.date;
 		const isFirst = !hasRange || iso === e.date;
@@ -152,10 +165,10 @@ function card(e, venues, iso) {
 			}
 		}
 
+		// строку «Начало» у турнира НЕ рисуем вообще
 		extra =
 			row("big", e.title && esc(e.title)) +
 			row("l", e.place && `Место проведения: ${esc(e.place)}`) +
-			row("l", e.start && `Начало: ${esc(e.start)}`) +
 			row("l", dateLabel && esc(dateLabel));
 	}
 
