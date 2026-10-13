@@ -149,7 +149,7 @@ export function open(ev = {}) {
 
       <div data-fm="same">
         <div class="r2 form-grid">
-          <label>Начало ${tsel("start", sameSlot.start || "")}</label>
+          <label>Начало ${tsel("friendly_start", sameSlot.start || "")}</label>
           <label>Состав<select name="friendly_group_same" aria-label="Состав">${groupOptions(sameSlot.group_id || "")}</select></label>
         </div>
       </div>

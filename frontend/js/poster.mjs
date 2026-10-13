@@ -62,7 +62,7 @@ function eventOnDate(e, iso) {
 // и отдельно строку сборов { warmup: "12:30" | "12:15" | "" }.
 function friendlyTimes(e) {
 	const slots = e.slots || [];
-	if (!slots.length) return { rows: [], warmup: "" };
+	if (!slots.length) return { rows: [], warmup: "", warmupMin: 0 };
 
 	const byTime = new Map();
 	let hasUnknown = false;
@@ -81,7 +81,6 @@ function friendlyTimes(e) {
 
 	if (hasUnknown) rows.push({ time: "время уточняется", group: "" });
 
-	// сбор — по первому (самому раннему) времени игры, без сдвига основного времени
 	const firstStart = rows.find((r) => /^\d{2}:\d{2}$/.test(r.time))?.time;
 	let warmup = "";
 	let warmupMin = 0;
@@ -138,10 +137,10 @@ function card(e, venues, iso) {
 					`<div class="as">${icon("star")}<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span></div>`,
 			)
 			.join("");
+		// Площадку НЕ дублируем — она уже в meta-строке выше.
 		extra =
 			timesHtml +
 			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`) +
-			row("l", v?.name && `Место: ${esc(v.name)}`) +
 			row("warn", warmup && `Сбор за ${warmupMin} минут — в ${esc(warmup)}`);
 	} else {
 		// tournament

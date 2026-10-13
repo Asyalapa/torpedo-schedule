@@ -49,7 +49,7 @@ export function build(fd, groups) {
 		const mode = g("friendly_mode") || "same";
 
 		if (mode === "same") {
-			const start = time("start");
+			const start = time("friendly_start");
 			const groupId = g("friendly_group_same");
 			const group = groups.find((x) => x.id === groupId) || null;
 			e.slots = [
