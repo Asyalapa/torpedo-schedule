@@ -107,13 +107,14 @@ def init_db() -> None:
 
         # если команд ещё нет — создаём одну дефолтную, чтобы тренер мог войти
         n = conn.execute("SELECT COUNT(*) AS n FROM teams").fetchone()["n"]
+        default_pw = os.environ.get("DEFAULT_TEAM_PASSWORD", "")
         if n == 0:
             team_id = "torpedo-2019"
             slug = "torpedo-2019"
             conn.execute(
                 "INSERT INTO teams (id, slug, name, password_hash, subgroups_enabled, created_at) "
                 "VALUES (?, ?, ?, ?, NULL, datetime('now'))",
-                (team_id, slug, "ХК Торпедо · 2019", hash_password("torpedo19")),
+                (team_id, slug, "ХК Торпедо · 2019", hash_password(default_pw)),
             )
             # дефолтные площадки — если таблица пуста
         n = conn.execute("SELECT COUNT(*) AS n FROM venues").fetchone()["n"]
