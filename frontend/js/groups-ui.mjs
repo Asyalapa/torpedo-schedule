@@ -22,10 +22,12 @@ const move = (a, i, d) => {
 
 export function renderGroups() {
 	const el = $("#groups-editor");
-	el.innerHTML =
-		state.groups
-			.map(
-				(g) => `<details data-g="${g.id}" ${open.has(g.id) ? "open" : ""}>
+	el.querySelectorAll("details[data-g]").forEach((d) => {
+		if (d.open) open.add(d.dataset.g);
+		else open.delete(d.dataset.g);
+	});
+	el.innerHTML = state.groups
+			.map((g) => `<details data-g="${g.id}" ${open.has(g.id) ? "open" : ""}>
 <summary>${esc(g.name)} · ${g.players.length}</summary>
 <label class="roster-toggle">
   <input type="checkbox" data-rprint ${g.print_on_roster !== false ? "checked" : ""}>
@@ -43,6 +45,12 @@ export function renderGroups() {
 <div class="row"><button type="button" class="alt" data-act="gup">Группу выше</button><button type="button" class="alt" data-act="gdn">Ниже</button><button type="button" class="alt" data-act="gdel">Удалить группу</button></div></details>`,
 			)
 			.join("") + '<button type="button" data-act="gadd">+ Добавить группу</button>';
+	el.querySelectorAll("details[data-g]").forEach((d) => {
+		d.addEventListener("toggle", () => {
+			if (d.open) open.add(d.dataset.g);
+			else open.delete(d.dataset.g);
+		});
+	});
 	enhanceAllSelects(el);
 }
 
@@ -60,7 +68,13 @@ export function initGroups() {
 			const g = { id: uid(), name: "Новая группа", players: [] };
 			state.groups.push(g);
 			open.add(g.id);
-			return done();
+			done();
+			requestAnimationFrame(() => {
+				const det = el.querySelector(`details[data-g="${g.id}"]`);
+				det?.scrollIntoView({ block: "nearest" });
+				det?.querySelector("[data-gname]")?.focus();
+			});
+			return;
 		}
 		const d = b.closest("[data-g]"),
 			g = state.groups.find((x) => x.id === d.dataset.g),
