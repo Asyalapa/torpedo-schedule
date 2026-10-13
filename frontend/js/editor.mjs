@@ -31,10 +31,11 @@ const opts = (a, sel) =>
 		.join("");
 
 // Часы + минуты. Пустое значение = не задано.
-const tsel = (n, v = "") => {
+const tsel = (n, v = "", withDefault = false) => {
 	const [h, m] = (v || "").split(":");
-	const hSel = h || (n === "start" ? DEFAULT_START_H : "");
-	const mSel = m || (n === "start" ? DEFAULT_START_M : "");
+	const def = withDefault && n === "start";
+	const hSel = h || (def ? DEFAULT_START_H : "");
+	const mSel = m || (def ? DEFAULT_START_M : "");
 	return `<span class="time time-field"><select name="${n}_h" aria-label="Часы">${opts([["", "—"], ...H.map((x) => [x, x])], hSel)}</select><span class="sep time-field__separator">:</span><select name="${n}_m" aria-label="Минуты">${opts([["", "—"], ...M.map((x) => [x, x])], mSel)}</select></span>`;
 };
 
@@ -180,8 +181,13 @@ ${seg(
 		e.kind,
 	)}
 <label>День<select name="date">${days.map((d) => `<option value="${d}" ${d === e.date ? "selected" : ""}>${fmt(d, { weekday: "long", day: "numeric", month: "long" })}</option>`).join("")}</select></label>
-<div class="r2 form-grid" data-k="training"><label>Начало ${tsel("start", e.start)}</label><label>Длительность ${dsel(durVal)}</label></div>
-<label data-k="training">Площадка<select name="venue_id">${state.venues.map((x) => `<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+<div class="r2 form-grid" data-k="training"><label>Начало ${tsel("start", e.start, true)}</label><label>Длительность ${dsel(durVal)}</label></div>
+<label data-k="training">Площадка<select name="venue_id">
+  <option value="" ${!e.venue_id ? "selected" : ""}>— не указана —</option>
+  ${state.venues.map((x) =>
+		`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`
+	).join("")}
+</select></label>
 ${seg(
 		"type",
 		[
