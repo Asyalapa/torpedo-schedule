@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-
+import os
 from .config import settings
 from .security import hash_password
 
