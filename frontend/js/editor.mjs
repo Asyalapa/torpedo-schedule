@@ -31,6 +31,7 @@ const opts = (a, sel) =>
 		.join("");
 
 // Часы + минуты. Пустое значение = не задано.
+// withDefault=true — только для тренировки, чтобы поле старта сразу было 06:00.
 const tsel = (n, v = "", withDefault = false) => {
 	const [h, m] = (v || "").split(":");
 	const def = withDefault && n === "start";
@@ -90,7 +91,7 @@ const groupOptions = (selected = "") => {
 	);
 };
 
-// Слот friendly: селект группы + время начала.
+// Слот friendly: селект группы + время начала (без дефолта 06:00).
 const friendlySlot = (i, slot = {}) => `
   <div class="friendly-slot friendly__slot" data-slot="${i}">
     <label>Состав<select name="slot_group_${i}" aria-label="Состав">${groupOptions(slot.group_id || "")}</select></label>
@@ -134,12 +135,15 @@ export function open(ev = {}) {
 	const friendlyHTML = `
     <div data-k="friendly">
       <label>Соперник<input name="opponent" value="${v(e.opponent)}"></label>
-      <label>Площадка<select name="venue_id"><option value="">— не указана —</option>${state.venues
+      <label>Площадка<select name="venue_id">
+        <option value="" ${!e.venue_id ? "selected" : ""}>— не указана —</option>
+        ${state.venues
 		.map(
 			(x) =>
 				`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`,
 		)
-		.join("")}</select></label>
+		.join("")}
+      </select></label>
 
       <div class="seg segmented" style="margin-top:10px">
         <label><input type="radio" name="friendly_mode" value="same" ${friendlyMode === "same" ? "checked" : ""}>Все составы в одно время</label>
@@ -184,9 +188,12 @@ ${seg(
 <div class="r2 form-grid" data-k="training"><label>Начало ${tsel("start", e.start, true)}</label><label>Длительность ${dsel(durVal)}</label></div>
 <label data-k="training">Площадка<select name="venue_id">
   <option value="" ${!e.venue_id ? "selected" : ""}>— не указана —</option>
-  ${state.venues.map((x) =>
-		`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`
-	).join("")}
+  ${state.venues
+		.map(
+			(x) =>
+				`<option value="${x.id}" ${x.id === e.venue_id ? "selected" : ""}>${esc(x.name)}</option>`,
+		)
+		.join("")}
 </select></label>
 ${seg(
 		"type",
@@ -242,12 +249,29 @@ ${friendlyHTML}
 		open();
 	};
 
+	// ↓↓↓ новый контракт validate(): { errors, warnings }
 	f.onsubmit = (x) => {
 		x.preventDefault();
 		const ne = build(new FormData(f), state.groups);
-		const err = validate(ne, state.groups);
-		$("#errs").innerHTML = err.map((m) => `<li>${esc(m)}</li>`).join("");
-		if (err.length) return;
+		const { errors, warnings } = validate(ne, state.groups);
+
+		$("#errs").innerHTML =
+			errors.map((m) => `<li class="err">${esc(m)}</li>`).join("") +
+			warnings.map((m) => `<li class="warn">${esc(m)}</li>`).join("");
+
+		if (errors.length) return;
+
+		if (
+			warnings.length &&
+			!confirm(
+				"Есть предупреждения:\n\n" +
+				warnings.map((w) => "• " + w).join("\n") +
+				"\n\nСохранить событие как есть?",
+			)
+		) {
+			return;
+		}
+
 		if (!ne.id) ne.id = uid();
 		const i = state.week.events.findIndex((q) => q.id === ne.id);
 		if (i < 0) state.week.events.push(ne);
@@ -335,7 +359,7 @@ function renderLists() {
 				if (e.kind === "training" && e.start && e.duration) {
 					time = `${e.start}–${addMinutes(e.start, e.duration)}`;
 				} else if (e.kind === "friendly" && e.slots?.length) {
-					const times = [...new Set(e.slots.map((s) => s.start))].sort();
+					const times = [...new Set(e.slots.map((s) => s.start).filter(Boolean))].sort();
 					time = times.join(", ");
 				} else if (e.start) {
 					time = e.start;

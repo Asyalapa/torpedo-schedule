@@ -81,53 +81,62 @@ export function build(fd, groups) {
 }
 
 export function validate(e, groups = []) {
-	const err = [];
-	if (!e.date) err.push("Выберите день.");
+	const errors = [];
+	const warnings = [];
+
+	if (!e.date) errors.push("Выберите день.");
+
 	const bad = (t) => t && !T.test(t);
 
 	if (e.kind === "training") {
-		if (bad(e.start)) err.push("Время нужно указать полностью: часы и минуты.");
-		if (!e.start) err.push("Укажите время начала.");
+		if (bad(e.start)) errors.push("Время нужно указать полностью: часы и минуты.");
+		if (!e.start) errors.push("Укажите время начала.");
 		if (!DURATIONS.has(Number(e.duration)))
-			err.push("Длительность должна быть 30, 45, 60 или 75 минут.");
-		if (!e.venue_id) err.push("Выберите площадку.");
+			errors.push("Длительность должна быть 30, 45, 60 или 75 минут.");
+		if (!e.venue_id) errors.push("Выберите площадку.");
 		if (e.type === "gym" && e.gym_mode === "groups" && !e.assignments?.length)
-			err.push("Отметьте хотя бы одну группу.");
+			errors.push("Отметьте хотя бы одну группу.");
 	}
 
 	if (e.kind === "friendly") {
 		if (!e.slots?.length) {
-			err.push("Укажите хотя бы одно время начала.");
+			errors.push("Укажите хотя бы один состав.");
 		} else {
 			e.slots.forEach((s, i) => {
-				if (!s.start) {
-					err.push(`Состав ${i + 1}: укажите время начала.`);
-				} else if (bad(s.start)) {
-					err.push(
+				// время не обязательно — но если введено, должно быть корректным
+				if (s.start && bad(s.start)) {
+					errors.push(
 						`Состав ${i + 1}: время нужно указать полностью: часы и минуты.`,
 					);
 				}
+				if (!s.start) {
+					warnings.push(
+						`Состав ${i + 1}: время начала не указано — в афише будет «время уточняется».`,
+					);
+				}
 				if (groups.length && !s.group_id) {
-					err.push(`Состав ${i + 1}: выберите группу.`);
+					errors.push(`Состав ${i + 1}: выберите группу.`);
 				}
 			});
 
 			// разные составы не должны пересекаться по группам
 			const ids = e.slots.map((s) => s.group_id).filter(Boolean);
-			const uniq = new Set(ids);
-			if (ids.length !== uniq.size) {
-				err.push("Один и тот же состав не может играть дважды в одной игре.");
+			if (ids.length !== new Set(ids).size) {
+				errors.push("Один и тот же состав не может играть дважды в одной игре.");
 			}
 		}
 	}
 
 	if (e.kind === "tournament") {
-		if (!e.title) err.push("Введите название турнира.");
-		if (bad(e.start)) err.push("Время нужно указать полностью: часы и минуты.");
+		if (!e.title) errors.push("Введите название турнира.");
+		// время начала не обязательно; если указано — проверяем формат
+		if (e.start && bad(e.start)) {
+			errors.push("Время нужно указать полностью: часы и минуты.");
+		}
 		if (e.date_end && e.date_end < e.date) {
-			err.push("Последний день турнира раньше первого.");
+			errors.push("Последний день турнира раньше первого.");
 		}
 	}
 
-	return err;
+	return { errors, warnings };
 }

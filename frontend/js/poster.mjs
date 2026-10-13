@@ -59,19 +59,30 @@ function eventOnDate(e, iso) {
 
 // Время friendly с учётом warmup_30.
 // Возвращает массив { time, group } — по одной строке на уникальное время.
+// Если хотя бы у одного слота нет времени — добавляем «время уточняется».
 function friendlyTimes(e) {
 	const slots = e.slots || [];
 	if (!slots.length) return [];
 	const shift = e.warmup_30 ? -30 : 0;
 	const byTime = new Map();
+	let hasUnknown = false;
+
 	for (const s of slots) {
+		if (!s.start) {
+			hasUnknown = true;
+			continue;
+		}
 		const shown = shift ? addMinutes(s.start, shift) : s.start;
 		if (!byTime.has(shown)) byTime.set(shown, []);
 		if (s.group_name) byTime.get(shown).push(s.group_name);
 	}
-	return [...byTime.entries()]
+
+	const out = [...byTime.entries()]
 		.sort((a, b) => a[0].localeCompare(b[0]))
 		.map(([time, groups]) => ({ time, group: groups.join(", ") }));
+
+	if (hasUnknown) out.push({ time: "время уточняется", group: "" });
+	return out;
 }
 
 function card(e, venues, iso) {
