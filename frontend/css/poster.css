@@ -21,7 +21,7 @@
 .poster__note, .n { color: var(--color-text-muted); }
 .poster__text--large, .big { font-size: 1.15em; }
 .poster__assignment, .as { display: flex; gap: .4em; align-items: center; margin-top: .15em; }
-.as svg { width: 1.2em; height: 1.2em; color: var(--c); }
+.as svg { width: 1em; height: 1em; color: var(--c); }
 .poster__warning, .warn { margin-top: .35em; padding: .25em .55em; background: #fff; border: .12em dashed var(--c); border-radius: .4em; font-weight: 800; }
 .poster__off, .off { margin-top: .3em; color: var(--color-text-soft); font-weight: 400; }
 .poster__announcement, .ann { margin-top: .8em; padding: .7em .9em; background: var(--color-dark); color: #fff; border-radius: .8em; }
@@ -45,15 +45,33 @@
 .poster .groups-grid .as {
 	min-width: 0;
 }
-.poster .groups-grid .as span {
+.poster .as .as-row span {
 	overflow-wrap: anywhere;
+	font-size: 0.7em;
+	min-width: 0;
 }
 
 /* Строка сбора под временем слота friendly — приглушённая. */
 .poster .as .warmup-mini {
 	margin-top: 2px;
-	margin-left: 28px; /* под иконку ⭐ */
+	margin-left: 0;
 	font-size: 0.9em;
-	color: #8a6d00;
+	color: #5a8111;
 	font-weight: 600;
+}
+
+/* .as с вложенным сбором: сверху строка «иконка + текст», снизу — сбор. */
+.poster .as.as--stack {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+}
+
+/* Внутри — обычная строка «иконка + текст», как было. */
+.poster .as .as-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	min-width: 0;
 }

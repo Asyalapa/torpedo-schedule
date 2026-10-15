@@ -188,11 +188,13 @@ function card(e, venues, iso) {
 		const timesHtml = rows
 			.map(
 				({ time, group, warmup }) => `
-				<div class="as">
+			<div class="as as--stack">
+				<div class="as-row">
 					${icon("star")}
 					<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span>
-					${warmup ? `<div class="warmup-mini">Сбор за ${warmupMin} минут — в ${esc(warmup)}</div>` : ""}
-				</div>`,
+				</div>
+				${warmup ? `<div class="warmup-mini">Сбор за ${warmupMin} минут — в ${esc(warmup)}</div>` : ""}
+			</div>`,
 			)
 			.join("");
 		extra =
