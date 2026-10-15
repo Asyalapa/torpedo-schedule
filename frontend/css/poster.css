@@ -36,7 +36,7 @@
 .poster .groups-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 4px 16px;
+	gap: 4px;
 	margin-top: 4px;
 }
 
@@ -44,17 +44,17 @@
 /* разрешаем перенос по словам, чтобы не наползали друг на друга. */
 .poster .groups-grid .as {
 	min-width: 0;
-	font-size: 0.7em;
+	font-size: 0.75em;
 }
 .poster .as .as-row span {
 	overflow-wrap: anywhere;
 	min-width: 0;
+	font-size: .95em;
 }
 
 /* Строка сбора под временем слота friendly — приглушённая. */
 .poster .as .warmup-mini {
-	margin-top: 2px;
-	margin-left: 0;
+	margin: .5em 0;
 	font-size: 0.9em;
 	color: #5a8111;
 	font-weight: 600;
