@@ -104,14 +104,14 @@ function eventOnDate(e, iso) {
 
 /**
  * Разворачивает friendly в строки времени для афиши.
- * Собирает уникальные времена слотов, добавляет «время уточняется» для пустых,
- * и считает время сбора (если включён warmup_30 / warmup_45).
+ * Для каждого уникального времени собирает группы, а также время сбора
+ * (warmup_30 / warmup_45). Сбор считается от каждого уникального времени.
  * @param {object} e — friendly-событие
- * @returns {{rows: Array<{time: string, group: string}>, warmup: string, warmupMin: number}}
+ * @returns {{rows: Array<{time: string, group: string, warmup: string}>, warmupMin: number}}
  */
 function friendlyTimes(e) {
 	const slots = e.slots || [];
-	if (!slots.length) return { rows: [], warmup: "", warmupMin: 0 };
+	if (!slots.length) return { rows: [], warmupMin: 0 };
 
 	const byTime = new Map();
 	let hasUnknown = false;
@@ -124,25 +124,21 @@ function friendlyTimes(e) {
 		if (s.group_name) byTime.get(s.start).push(s.group_name);
 	}
 
+	let warmupMin = 0;
+	if (e.warmup_45) warmupMin = 45;
+	else if (e.warmup_30) warmupMin = 30;
+
 	const rows = [...byTime.entries()]
 		.sort((a, b) => a[0].localeCompare(b[0]))
-		.map(([time, groups]) => ({ time, group: groups.join(", ") }));
+		.map(([time, groups]) => ({
+			time,
+			group: groups.join(", "),
+			warmup: warmupMin ? addMinutes(time, -warmupMin) : "",
+		}));
 
-	if (hasUnknown) rows.push({ time: "время уточняется", group: "" });
+	if (hasUnknown) rows.push({ time: "время уточняется", group: "", warmup: "" });
 
-	const firstStart = rows.find((r) => /^\d{2}:\d{2}$/.test(r.time))?.time;
-	let warmup = "";
-	let warmupMin = 0;
-	if (firstStart) {
-		if (e.warmup_45) {
-			warmup = addMinutes(firstStart, -45);
-			warmupMin = 45;
-		} else if (e.warmup_30) {
-			warmup = addMinutes(firstStart, -30);
-			warmupMin = 30;
-		}
-	}
-	return { rows, warmup, warmupMin };
+	return { rows, warmupMin };
 }
 
 /**
@@ -173,30 +169,35 @@ function card(e, venues, iso) {
 		const groups = e.type === "gym" && e.gym_mode === "groups";
 		ic = e.type === "ice" ? "snow" : "ball";
 		title = e.type === "ice" ? "Лёд" : "Зал";
-		if (groups)
-			extra = (e.assignments || [])
+		if (groups) {
+			const items = (e.assignments || [])
 				.map(
 					(a) =>
 						`<div class="as">${icon(ACT[a.activity][1])}<span>${esc(a.group_name)} — ${ACT[a.activity][0]}</span></div>`,
 				)
 				.join("");
+			extra = `<div class="groups-grid">${items}</div>`;
+		}
 		if (e.type === "gym" && e.gym_mode === "common" && e.florball_warning)
 			extra =
 				'<div class="warn">Взять с собой: шлем, краги и клюшку для флорбола</div>';
 	} else if (e.kind === "friendly") {
 		ic = sp.icon;
 		title = sp.label;
-		const { rows, warmup, warmupMin } = friendlyTimes(e);
+		const { rows, warmupMin } = friendlyTimes(e);
 		const timesHtml = rows
 			.map(
-				({ time, group }) =>
-					`<div class="as">${icon("star")}<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span></div>`,
+				({ time, group, warmup }) => `
+				<div class="as">
+					${icon("star")}
+					<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span>
+					${warmup ? `<div class="warmup-mini">Сбор за ${warmupMin} минут — в ${esc(warmup)}</div>` : ""}
+				</div>`,
 			)
 			.join("");
 		extra =
 			timesHtml +
-			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`) +
-			row("warn", warmup && `Сбор за ${warmupMin} минут — в ${esc(warmup)}`);
+			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`);
 	} else {
 		ic = sp.icon;
 		title = "Турнир";
