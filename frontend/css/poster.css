@@ -44,10 +44,10 @@
 /* разрешаем перенос по словам, чтобы не наползали друг на друга. */
 .poster .groups-grid .as {
 	min-width: 0;
+	font-size: 0.7em;
 }
 .poster .as .as-row span {
 	overflow-wrap: anywhere;
-	font-size: 0.7em;
 	min-width: 0;
 }
 
