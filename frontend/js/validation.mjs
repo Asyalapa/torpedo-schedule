@@ -1,10 +1,42 @@
-// frontend/js/validation.mjs
-
+/**
+ * Регулярка для времени HH:MM.
+ * Часы — 00..23, минуты — кратные 5.
+ * Отличается от серверного `Time` (там часы 06..21) — на фронте мягче,
+ * чтобы поле не «залипало», если что-то не влезло; жёсткие границы
+ * всё равно проверяет бэкенд.
+ */
 const T = /^([01]\d|2[0-3]):[0-5][05]$/;
+
+/**
+ * Допустимые длительности тренировки в минутах.
+ * Должно совпадать с DURATIONS в editor.mjs и Duration в models.py.
+ */
 const DURATIONS = new Set([30, 45, 60, 75]);
 
+/**
+ * Собирает объект события из данных формы.
+ * Читает `FormData`, приводит типы, собирает вложенные структуры
+ * (assignments, slots). Никакой валидации не делает — только преобразование.
+ *
+ * @param {FormData} fd — данные формы события
+ * @param {Array<{id: string, name: string}>} groups — группы команды
+ *   (нужны, чтобы подставить group_name по group_id)
+ * @returns {object} событие в формате API
+ */
 export function build(fd, groups) {
+	/**
+	 * Читает поле формы и обрезает пробелы.
+	 * @param {string} k — имя поля
+	 * @returns {string}
+	 */
 	const g = (k) => (fd.get(k) ?? "").toString().trim();
+
+	/**
+	 * Собирает время из пары селектов `<n>_h` и `<n>_m`.
+	 * Возвращает "" если хотя бы одно из полей не заполнено.
+	 * @param {string} n — префикс (например, "start" или "friendly_start")
+	 * @returns {string} "HH:MM" или ""
+	 */
 	const time = (n) => {
 		const h = g(`${n}_h`),
 			m = g(`${n}_m`);
@@ -37,6 +69,8 @@ export function build(fd, groups) {
 		}
 	} else if (kind === "friendly") {
 		// ВАЖНО: площадка лежит в friendly_venue_id, а не в venue_id
+		// (в форме тренировки и товарищеской игры поля называются по-разному,
+		// чтобы FormData не путала их между собой).
 		const vId = g("friendly_venue_id");
 		if (vId) e.venue_id = vId;
 		if (g("opponent")) e.opponent = g("opponent");
@@ -82,12 +116,30 @@ export function build(fd, groups) {
 	return e;
 }
 
+/**
+ * Валидирует событие перед сохранением.
+ *
+ * Возвращает два списка:
+ *  - errors — жёсткие ошибки, блокируют сохранение;
+ *  - warnings — предупреждения (например, отсутствие времени friendly),
+ *    показываются пользователю, но сохранить можно.
+ *
+ * @param {object} e — событие, уже собранное через build()
+ * @param {Array<{id: string, name: string}>} [groups=[]] — группы команды
+ * @returns {{errors: string[], warnings: string[]}}
+ */
 export function validate(e, groups = []) {
 	const errors = [];
 	const warnings = [];
 
 	if (!e.date) errors.push("Выберите день.");
 
+	/**
+	 * Проверяет формат времени: пустое значение пропускает,
+	 * непустое — должно совпадать с T.
+	 * @param {string} t
+	 * @returns {boolean}
+	 */
 	const bad = (t) => t && !T.test(t);
 
 	if (e.kind === "training") {
@@ -120,6 +172,7 @@ export function validate(e, groups = []) {
 				}
 			});
 
+			// Один и тот же состав не должен играть дважды в одной игре
 			const ids = e.slots.map((s) => s.group_id).filter(Boolean);
 			if (ids.length !== new Set(ids).size) {
 				errors.push("Один и тот же состав не может играть дважды в одной игре.");

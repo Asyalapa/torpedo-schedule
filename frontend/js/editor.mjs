@@ -1,19 +1,49 @@
-// frontend/js/editor.mjs
 import { enhanceAllSelects } from "./dropdown.mjs";
-import { addDays, esc, fmt, addMinutes } from "./poster.mjs";
+import {addDays, esc, addMinutes, fmt} from './poster.mjs';
 import { emit, on, state, uid } from "./state.mjs";
 import { build, validate } from "./validation.mjs";
 
+/**
+ * Короткий доступ к document.querySelector.
+ * @param {string} s — CSS-селектор
+ * @returns {Element|null}
+ */
 const $ = (s) => document.querySelector(s);
+
+/**
+ * Дополняет число нулём слева до двух разрядов.
+ * @param {number} n
+ * @returns {string}
+ */
 const pad = (n) => String(n).padStart(2, "0");
 
+/**
+ * Часы для селектов времени: "06".."21".
+ * Меньше 06 и больше 21 не даём — тренировки в это время не проводятся.
+ */
 const H = Array.from({ length: 16 }, (_, i) => pad(6 + i));
+
+/**
+ * Минуты для селектов времени: "00", "05", ..., "55".
+ */
 const M = Array.from({ length: 12 }, (_, i) => pad(i * 5));
 
+/**
+ * Значения по умолчанию для поля «Начало» тренировки.
+ * Дефолт подставляется только для тренировок (см. tsel).
+ */
 const DEFAULT_START_H = "06";
 const DEFAULT_START_M = "00";
+
+/**
+ * Длительность по умолчанию.
+ */
 const DEFAULT_DURATION = "75";
 
+/**
+ * Варианты длительности для выпадашки в форме.
+ * Значения — строки, потому что так удобнее сравнивать с option.value.
+ */
 const DURATIONS = [
 	["30", "30 минут"],
 	["45", "45 минут"],
@@ -21,6 +51,12 @@ const DURATIONS = [
 	["75", "1 час 15 минут"],
 ];
 
+/**
+ * Собирает HTML <option> из пар [value, label].
+ * @param {Array<[string, string]>} a — массив пар
+ * @param {string} sel — значение, которое должно быть отмечено selected
+ * @returns {string}
+ */
 const opts = (a, sel) =>
 	a
 		.map(
@@ -29,6 +65,15 @@ const opts = (a, sel) =>
 		)
 		.join("");
 
+/**
+ * Рисует пару селектов «часы : минуты» для времени.
+ *
+ * @param {string} n — префикс имён; итоговые поля будут `<n>_h` и `<n>_m`
+ * @param {string} [v=""] — текущее значение "HH:MM"
+ * @param {boolean} [withDefault=false] — подставлять ли 06:00, если время пустое
+ *   (только для тренировки; для friendly и tournament не надо)
+ * @returns {string} HTML
+ */
 const tsel = (n, v = "", withDefault = false) => {
 	const [h, m] = (v || "").split(":");
 	const def = withDefault && n === "start";
@@ -37,19 +82,43 @@ const tsel = (n, v = "", withDefault = false) => {
 	return `<span class="time time-field"><select name="${n}_h" aria-label="Часы">${opts([["", "—"], ...H.map((x) => [x, x])], hSel)}</select><span class="sep time-field__separator">:</span><select name="${n}_m" aria-label="Минуты">${opts([["", "—"], ...M.map((x) => [x, x])], mSel)}</select></span>`;
 };
 
+/**
+ * Рисует селект длительности.
+ * @param {string} [v=""] — текущее значение в минутах (строкой)
+ * @returns {string} HTML
+ */
 const dsel = (v = "") => {
 	const val = v || DEFAULT_DURATION;
 	return `<select name="duration" aria-label="Длительность">${opts(DURATIONS, val)}</select>`;
 };
 
+/**
+ * Активности для зала по подгруппам: код → подпись.
+ * Коды должны совпадать с ACT в poster.mjs и Activity в models.py.
+ */
 const ACT = [
 	["ofp", "ОФП"],
 	["stretch", "Растяжка"],
 	["dribbling", "Дриблинг"],
 ];
+
+/**
+ * Рисует блок радио-кнопок «segmented».
+ * @param {string} name — общее имя radio-группы
+ * @param {Array<[string, string]>} list — пары [value, label]
+ * @param {string} cur — текущее выбранное значение
+ * @param {string} [attr=""] — дополнительные data-атрибуты на обёртке
+ * @returns {string} HTML
+ */
 const seg = (name, list, cur, attr = "") =>
 	`<div class="seg segmented" ${attr}>${list.map(([v, t]) => `<label><input type="radio" name="${name}" value="${v}" ${v === cur ? "checked" : ""}>${t}</label>`).join("")}</div>`;
 
+/**
+ * Рисует строки выбора подгрупп для групповой тренировки в зале.
+ * @param {Object<string, {on: boolean, act: string}>} [prev={}] — предыдущее
+ *   состояние: { group_id: { on, act } } (для редактирования существующего события)
+ * @returns {string} HTML
+ */
 const rows = (prev = {}) =>
 	state.groups
 		.map((g) => {
@@ -58,6 +127,11 @@ const rows = (prev = {}) =>
 		})
 		.join("");
 
+/**
+ * Считывает текущее состояние строк подгрупп из DOM.
+ * Используется при перерисовке `#grows`, чтобы не потерять выбор пользователя.
+ * @returns {Object<string, {on: boolean, act: string}>}
+ */
 const readRows = () =>
 	Object.fromEntries(
 		[...document.querySelectorAll("#grows .grow")].map((r) => [
@@ -69,8 +143,19 @@ const readRows = () =>
 		]),
 	);
 
+/**
+ * Дата, выбранная в прошлый раз в форме.
+ * Нужна, чтобы при добавлении нескольких событий подряд форма
+ * открывалась на той же дате, а не сбрасывалась на начало недели.
+ */
 let lastDate = null;
 
+/**
+ * Рисует <option> для выбора состава (группы) в товарищеской игре.
+ * Если у команды нет подгрупп — одиночный вариант «— вся команда —».
+ * @param {string} [selected=""] — id выбранной группы
+ * @returns {string} HTML
+ */
 const groupOptions = (selected = "") => {
 	if (!state.groups.length) {
 		return `<option value="" ${selected ? "" : "selected"}>— вся команда —</option>`;
@@ -86,7 +171,14 @@ const groupOptions = (selected = "") => {
 	);
 };
 
-// Площадки — селект. Вынесено, чтобы имя было параметром.
+/**
+ * Рисует селект площадки.
+ * Имя параметра вынесено, потому что в форме тренировки и в форме
+ * товарищеской игры это разные поля (`venue_id` и `friendly_venue_id`).
+ * @param {string} name — имя селекта
+ * @param {string} selectedId — id выбранной площадки или ""
+ * @returns {string} HTML
+ */
 const venueSelect = (name, selectedId) => `
   <select name="${name}">
     <option value="" ${!selectedId ? "selected" : ""}>— не указана —</option>
@@ -98,15 +190,40 @@ const venueSelect = (name, selectedId) => `
 	.join("")}
   </select>`;
 
+/**
+ * Рисует один слот товарищеской игры (состав + время начала).
+ * @param {number} i — индекс слота (0-based)
+ * @param {{group_id?: string, start?: string}} [slot={}]
+ * @returns {string} HTML
+ */
 const friendlySlot = (i, slot = {}) => `
   <div class="friendly-slot friendly__slot" data-slot="${i}">
     <label>Состав<select name="slot_group_${i}" aria-label="Состав">${groupOptions(slot.group_id || "")}</select></label>
     <label>Начало ${tsel(`slot_start_${i}`, slot.start || "")}</label>
   </div>`;
 
+/**
+ * Рисует N слотов товарищеской игры.
+ * @param {number} count — сколько слотов
+ * @param {Array<object>} [existing=[]] — массив существующих слотов
+ * @returns {string} HTML
+ */
 const friendlySlots = (count, existing = []) =>
 	Array.from({ length: count }, (_, i) => friendlySlot(i, existing[i] || {})).join("");
 
+/**
+ * Открывает редактор события.
+ *
+ * Если передать существующее событие — форма заполнится его значениями.
+ * Если не передать — форма откроется пустой (тренировка, дата = lastDate
+ * или начало недели).
+ *
+ * Рисует HTML формы в `#form-box`, навешивает обработчики, после сабмита
+ * кладёт событие в `state.week.events` и вызывает `emit()`.
+ *
+ * @param {object} [ev={}] — событие (Training | Friendly | Tournament)
+ * @returns {void}
+ */
 export function open(ev = {}) {
 	const e = {
 		kind: "training",
@@ -221,6 +338,7 @@ ${friendlyHTML}
 	sync();
 	enhanceAllSelects(f);
 
+	// При смене режима friendly или количества составов — перерисовать слоты
 	f.addEventListener("change", (ev) => {
 		if (
 			ev.target.name === "friendly_mode" ||
@@ -272,6 +390,13 @@ ${friendlyHTML}
 	};
 }
 
+/**
+ * Перерисовывает блок слотов friendly, сохраняя уже введённые значения.
+ * Вызывается при смене режима («все составы в одно время» ↔ «у каждого
+ * состава своё время») и при изменении количества составов.
+ * @param {HTMLFormElement} form — форма `#f`
+ * @returns {void}
+ */
 function renderFriendlySlots(form) {
 	const box = form.querySelector("#friendly-slots");
 	if (!box) return;
@@ -285,6 +410,7 @@ function renderFriendlySlots(form) {
 	}
 	if (sameBox) sameBox.hidden = true;
 
+	// Собираем уже введённые значения, чтобы не потерять их при перерисовке
 	const existing = [];
 	for (const el of box.querySelectorAll(".friendly-slot")) {
 		const i = Number(el.dataset.slot);
@@ -298,6 +424,11 @@ function renderFriendlySlots(form) {
 	enhanceAllSelects(box);
 }
 
+/**
+ * Показывает/скрывает блоки формы в зависимости от вида события и
+ * выбранных параметров (лёд/зал, общее/по подгруппам, same/per_group).
+ * @returns {void}
+ */
 function sync() {
 	const f = $("#f"),
 		v = Object.fromEntries(new FormData(f));
@@ -317,6 +448,11 @@ function sync() {
 	});
 }
 
+/**
+ * Короткая подпись события для списка событий недели.
+ * @param {object} e — событие
+ * @returns {string}
+ */
 const label = (e) =>
 	e.kind === "training"
 		? (e.type === "ice" ? "Лёд" : "Зал") +
@@ -327,6 +463,10 @@ const label = (e) =>
 			? "Товарищеская игра"
 			: `Турнир: ${e.title}`;
 
+/**
+ * Перерисовывает список событий недели и список объявлений.
+ * @returns {void}
+ */
 function renderLists() {
 	const ev = [...state.week.events].sort((a, b) =>
 		(a.date + (a.start || "")).localeCompare(b.date + (b.start || "")),
@@ -334,6 +474,7 @@ function renderLists() {
 	$("#list").innerHTML =
 		ev
 			.map((e) => {
+				// Для турнира с диапазоном — «10–11 окт», иначе «пн, 10»
 				const hasRange =
 					e.kind === "tournament" && e.date_end && e.date_end > e.date;
 				const dateLabel = hasRange
@@ -362,6 +503,11 @@ function renderLists() {
 		.join("");
 }
 
+/**
+ * Инициализация редактора: рисует форму и список, подписывается на
+ * изменения состояния и вешает обработчики на кнопки «Изменить»/«Удалить».
+ * @returns {void}
+ */
 export function initEditor() {
 	open();
 	renderLists();

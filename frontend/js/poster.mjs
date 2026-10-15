@@ -1,6 +1,10 @@
-// frontend/js/poster.mjs
 import { icon } from "./icons.mjs";
 
+/**
+ * Экранирует спецсимволы HTML, чтобы их можно было вставить в разметку.
+ * @param {*} s — значение; приводится к строке
+ * @returns {string} безопасная для HTML строка
+ */
 export const esc = (s) =>
 	String(s).replace(
 		/[&<>"']/g,
@@ -10,17 +14,41 @@ export const esc = (s) =>
 				],
 	);
 
+/**
+ * Парсит ISO-дату (YYYY-MM-DD) как UTC-полночь.
+ * @param {string} iso — дата в формате YYYY-MM-DD
+ * @returns {Date}
+ */
 const utc = (iso) => new Date(iso + "T00:00:00Z");
 
+/**
+ * Прибавляет к дате N дней.
+ * @param {string} iso — исходная дата YYYY-MM-DD
+ * @param {number} n — сколько дней прибавить (может быть отрицательным)
+ * @returns {string} новая дата YYYY-MM-DD
+ */
 export const addDays = (iso, n) => {
 	const d = utc(iso);
 	d.setUTCDate(d.getUTCDate() + n);
 	return d.toISOString().slice(0, 10);
 };
 
+/**
+ * Форматирует дату по локали `ru` в UTC (без сдвига часовых поясов).
+ * @param {string} iso — дата YYYY-MM-DD
+ * @param {Intl.DateTimeFormatOptions} o — опции форматирования
+ * @returns {string}
+ */
 export const fmt = (iso, o) =>
 	utc(iso).toLocaleDateString("ru", { ...o, timeZone: "UTC" });
 
+
+/**
+ * Прибавляет минуты к времени HH:MM.
+ * @param {string} hhmm — исходное время, например "13:30"
+ * @param {number} minutes — сколько минут прибавить (может быть отрицательным)
+ * @returns {string} новое время HH:MM или "" если вход некорректен
+ */
 export function addMinutes(hhmm, minutes) {
 	if (!hhmm || !Number.isFinite(minutes)) return "";
 	const [h, m] = hhmm.split(":").map(Number);
@@ -30,12 +58,18 @@ export function addMinutes(hhmm, minutes) {
 	return `${hh}:${mm}`;
 }
 
+/**
+ * Словарь активностей для групповых занятий: код → [название, имя иконки].
+ */
 const ACT = {
 	ofp: ["ОФП", "dumbbell"],
 	stretch: ["Растяжка", "splits"],
 	dribbling: ["Дриблинг", "stick"],
 };
 
+/**
+ * Цвета и иконки для специальных типов событий (не тренировок).
+ */
 const SPECIAL = {
 	friendly: {
 		c: "#E3B341",
@@ -46,8 +80,21 @@ const SPECIAL = {
 	tournament: { c: "#E67E22", t: "#FFF0E0", icon: "trophy", label: "Турнир" },
 };
 
+/**
+ * Оборачивает HTML в div с классом, если HTML непустой.
+ * @param {string} cls — CSS-класс
+ * @param {string|false|null|undefined} html — содержимое
+ * @returns {string} готовая строка или ""
+ */
 const row = (cls, html) => (html ? `<div class="${cls}">${html}</div>` : "");
 
+/**
+ * Проверяет, попадает ли событие на конкретный день.
+ * Для турнира с date_end — на все дни диапазона включительно.
+ * @param {object} e — событие
+ * @param {string} iso — дата YYYY-MM-DD
+ * @returns {boolean}
+ */
 function eventOnDate(e, iso) {
 	if (e.kind === "tournament" && e.date_end && e.date_end > e.date) {
 		return e.date <= iso && iso <= e.date_end;
@@ -55,11 +102,13 @@ function eventOnDate(e, iso) {
 	return e.date === iso;
 }
 
-// Строки времени для friendly:
-//   - основное время каждого слота (без сдвига!)
-//   - если задан сбор (warmup_30 / warmup_45) — отдельная строка
-// Возвращает массив { time, group } для основного времени
-// и отдельно строку сборов { warmup: "12:30" | "12:15" | "" }.
+/**
+ * Разворачивает friendly в строки времени для афиши.
+ * Собирает уникальные времена слотов, добавляет «время уточняется» для пустых,
+ * и считает время сбора (если включён warmup_30 / warmup_45).
+ * @param {object} e — friendly-событие
+ * @returns {{rows: Array<{time: string, group: string}>, warmup: string, warmupMin: number}}
+ */
 function friendlyTimes(e) {
 	const slots = e.slots || [];
 	if (!slots.length) return { rows: [], warmup: "", warmupMin: 0 };
@@ -96,6 +145,13 @@ function friendlyTimes(e) {
 	return { rows, warmup, warmupMin };
 }
 
+/**
+ * Рисует одну карточку события для афиши.
+ * @param {object} e — событие (training | friendly | tournament)
+ * @param {Array<{id: string, name: string, color: string, tint: string}>} venues — список площадок
+ * @param {string} iso — дата, на которую рисуется карточка (для турниров с диапазоном)
+ * @returns {string} HTML карточки
+ */
 function card(e, venues, iso) {
 	const v = venues.find((x) => x.id === e.venue_id);
 	const sp = SPECIAL[e.kind];
@@ -137,13 +193,11 @@ function card(e, venues, iso) {
 					`<div class="as">${icon("star")}<span>${esc(time)}${group ? ` · ${esc(group)}` : ""}</span></div>`,
 			)
 			.join("");
-		// Площадку НЕ дублируем — она уже в meta-строке выше.
 		extra =
 			timesHtml +
 			row("l", e.opponent && `Соперник: ${esc(e.opponent)}`) +
 			row("warn", warmup && `Сбор за ${warmupMin} минут — в ${esc(warmup)}`);
 	} else {
-		// tournament
 		ic = sp.icon;
 		title = "Турнир";
 
@@ -164,7 +218,6 @@ function card(e, venues, iso) {
 			}
 		}
 
-		// строку «Начало» у турнира НЕ рисуем вообще
 		extra =
 			row("big", e.title && esc(e.title)) +
 			row("l", e.place && `Место проведения: ${esc(e.place)}`) +
@@ -174,6 +227,13 @@ function card(e, venues, iso) {
 	return `<div class="ev" style="--c:${c};--t:${t}">${icon(ic)}<div><div class="t">${title}</div>${row("m", meta)}${extra}${row("n", e.note && esc(e.note))}</div></div>`;
 }
 
+/**
+ * Собирает HTML всей афиши расписания на неделю.
+ * @param {{week_start: string, events: object[], announcements: object[]}} week — расписание недели
+ * @param {Array<object>} venues — площадки
+ * @param {string} [teamName="ХК Торпедо"] — название команды в шапке
+ * @returns {string} HTML
+ */
 export function posterHTML(week, venues, teamName = "ХК Торпедо") {
 	const days = Array.from({ length: 7 }, (_, i) => addDays(week.week_start, i))
 		.map((d) => {
@@ -201,6 +261,14 @@ export function posterHTML(week, venues, teamName = "ХК Торпедо") {
 	return `<div class="poster"><header class="ph"><b>${esc(teamName)}</b><h2>РАСПИСАНИЕ ТРЕНИРОВОК</h2><div>${range}</div></header>${days}${ann}</div>`;
 }
 
+/**
+ * Собирает HTML афиши составов подгрупп.
+ * В печать попадают только группы с `print_on_roster !== false`.
+ * @param {Array<object>} groups — группы с игроками
+ * @param {string} dateISO — дата, на которую актуальны составы
+ * @param {string} [teamName="ХК Торпедо"] — название команды в шапке
+ * @returns {string} HTML
+ */
 export function rosterHTML(groups, dateISO, teamName = "ХК Торпедо") {
 	const visible = groups.filter((g) => g.print_on_roster !== false);
 	const cards = visible
