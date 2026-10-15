@@ -9,7 +9,9 @@
 		"check:fix": "biome check --write . && prettier --write \"**/*.html\"",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
-		"format:html": "prettier --write \"**/*.html\""
+		"format:html": "prettier --write \"**/*.html\"",
+		"docs": "jsdoc -c jsdoc.json",
+		"docs:open": "jsdoc -c jsdoc.json && start docs/js/index.html"
 	},
 	"keywords": [],
 	"author": "",
@@ -17,6 +19,8 @@
 	"type": "module",
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",
+		"docdash": "^2.0.2",
+		"jsdoc": "^4.0.5",
 		"prettier": "^3.9.10"
 	},
 	"dependencies": {
